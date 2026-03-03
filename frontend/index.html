@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="description" content="SpendWise — Aplikasi pencatat keuangan pribadi dengan AI Advisor">
+  <meta name="theme-color" content="#0d1117" id="metaThemeColor">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="assets/logo.png">
+  <link rel="apple-touch-icon" href="assets/logo.png">
+  <title>SpendWise – Bijak Berbelanja, Cepat Menabung</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+  <!-- PocketBase JS SDK (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/pocketbase@0.21.3/dist/pocketbase.umd.js"></script>
+
+  <link rel="stylesheet" href="src/styles/main.css">
+  <link rel="stylesheet" href="src/styles/components.css">
+  <link rel="stylesheet" href="src/styles/responsive.css">
+</head>
+<body>
+
+<div id="root"></div>
+<div id="sidebarMount"></div>
+
+<!-- Loading awal saat fetch data -->
+<div id="appLoading" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:999;
+  display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px">
+  <img src="assets/logo.png" width="56" height="56" style="border-radius:12px;object-fit:contain;animation:pulse 1.5s infinite">
+  <div style="font-size:13px;color:var(--muted)">Memuat data dari server...</div>
+</div>
+
+<div id="appShell" style="display:none">
+  <div class="app-shell">
+    <div class="main">
+
+      <div class="topbar">
+        <button class="hamburger" onclick="toggleSidebar()">
+          <svg viewBox="0 0 24 24"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+        </button>
+        <div class="topbar-left">
+          <div class="topbar-title" id="topbarTitle">Dashboard</div>
+          <div class="topbar-subtitle" id="topbarDate"></div>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn-icon" id="themeToggleBtn" onclick="toggleTheme()" title="Ganti tema">
+            <svg id="themeIcon" viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+          </button>
+          <button class="btn btn-primary" onclick="openModal()">
+            <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+            Catat
+          </button>
+        </div>
+      </div>
+
+      <!-- DASHBOARD -->
+      <div class="page active" id="page-dashboard">
+        <div class="stats-grid">
+          <div class="stat-card green">
+            <div class="stat-label"><svg viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Saldo</div>
+            <div class="stat-value green mono" id="statBalance">Rp 0</div>
+            <div class="stat-sub text-muted">Total saldo tersedia</div>
+          </div>
+          <div class="stat-card red">
+            <div class="stat-label"><svg viewBox="0 0 24 24"><path d="M5 12h14M5 12l4-4M5 12l4 4"/></svg>Pengeluaran Hari Ini</div>
+            <div class="stat-value red mono" id="statTodayOut">Rp 0</div>
+            <div class="stat-sub text-muted" id="statTodaySub">–</div>
+          </div>
+          <div class="stat-card blue">
+            <div class="stat-label"><svg viewBox="0 0 24 24"><path d="M5 12h14M14 6l6 6-6 6"/></svg>Pemasukan Bulan Ini</div>
+            <div class="stat-value blue mono" id="statMonthIn">Rp 0</div>
+            <div class="stat-sub text-muted">Total pendapatan</div>
+          </div>
+          <div class="stat-card purple">
+            <div class="stat-label"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Sisa Budget Harian</div>
+            <div class="stat-value purple mono" id="statBudgetLeft">Rp 0</div>
+            <div class="stat-sub" id="statBudgetSub">–</div>
+          </div>
+        </div>
+        <div class="dash-grid">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title"><svg viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>Pengeluaran 7 Hari Terakhir</div>
+              <span class="text-xs mono text-muted" id="weekChartTotal"></span>
+            </div>
+            <div style="height:200px;position:relative"><canvas id="weekChart"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>Kategori Bulan Ini</div>
+            </div>
+            <div style="max-width:170px;margin:0 auto 14px;position:relative"><canvas id="pieChart" height="170"></canvas></div>
+            <div class="cat-list" id="catBreakdown"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/></svg>Transaksi Terbaru</div>
+            <button class="btn btn-ghost text-xs" onclick="showPage('transaksi')">Lihat Semua →</button>
+          </div>
+          <div class="tx-list" id="recentTxList"></div>
+        </div>
+
+        <!-- Goals Summary di dashboard -->
+        <div id="dashGoals" style="display:none">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">
+                <svg viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>
+                Goals & Tabungan
+              </div>
+              <button class="btn btn-ghost text-xs" onclick="showPage('goals')">Lihat Semua →</button>
+            </div>
+            <div class="goals-list" id="dashGoalsList"></div>
+          </div>
+        </div>
+
+        <!-- Recurring due today -->
+        <div id="dashRecurringAlert" style="display:none"></div>
+
+      </div>
+
+      <!-- TRANSAKSI -->
+      <div class="page" id="page-transaksi">
+        <div class="flex-between mb-16" style="gap:10px;flex-wrap:wrap">
+          <div class="text-sm text-muted" id="txCount"></div>
+          <div class="flex gap-8" style="flex-wrap:wrap">
+            <select class="form-input" id="txTypeFilter" onchange="renderTransaksiPage()" style="width:auto;padding:8px 30px 8px 11px;font-size:12px">
+              <option value="all">Semua Tipe</option>
+              <option value="out">Pengeluaran</option>
+              <option value="in">Pemasukan</option>
+            </select>
+            <select class="form-input" id="txCatFilter" onchange="renderTransaksiPage()" style="width:auto;padding:8px 30px 8px 11px;font-size:12px">
+              <option value="all">Semua Kategori</option>
+            </select>
+          </div>
+        </div>
+        <div class="card"><div class="tx-list" id="allTxList"></div></div>
+      </div>
+
+      <!-- BUDGET -->
+      <div class="page" id="page-budget">
+        <div class="budget-grid" id="budgetGrid"></div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Atur Budget per Kategori</div>
+            <span class="text-xs text-muted">per bulan</span>
+          </div>
+          <div id="budgetFormItems"></div>
+        </div>
+      </div>
+
+      <!-- LAPORAN -->
+      <div class="page" id="page-laporan">
+        <div class="flex-between mb-8" style="gap:8px;flex-wrap:wrap">
+          <div></div>
+          <div class="flex gap-8" style="flex-wrap:wrap">
+            <select class="form-input" id="laporanCatFilter" onchange="renderLaporanPage()" style="width:auto;padding:8px 28px 8px 10px;font-size:12px">
+              <option value="all">Semua Kategori</option>
+            </select>
+            <select class="form-input" id="laporanPeriod" onchange="renderLaporanPage()" style="width:auto;padding:8px 28px 8px 10px;font-size:12px">
+              <option value="month">Bulan Ini</option>
+              <option value="week">Minggu Ini</option>
+              <option value="today">Hari Ini</option>
+              <option value="last3">3 Bulan</option>
+              <option value="year">Tahun Ini</option>
+              <option value="all">Semua Waktu</option>
+              <option value="custom">Custom Tanggal</option>
+            </select>
+          </div>
+        </div>
+        <!-- Custom date range (tampil hanya saat "custom" dipilih) -->
+        <div id="laporanCustomRange" style="display:none;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+          <input type="date" class="form-input" id="laporanDateStart" onchange="renderLaporanPage()"
+            style="width:auto;padding:7px 10px;font-size:12px">
+          <span class="text-xs text-muted">s/d</span>
+          <input type="date" class="form-input" id="laporanDateEnd" onchange="renderLaporanPage()"
+            style="width:auto;padding:7px 10px;font-size:12px">
+        </div>
+        <div class="stats-grid mb-16" id="laporanStats"></div>
+        <div class="report-grid" id="reportGrid"></div>
+      </div>
+
+      <!-- GOALS & TABUNGAN -->
+      <div class="page" id="page-goals"></div>
+
+      <!-- AGENDA RUTIN -->
+      <div class="page" id="page-recurring"></div>
+
+      <!-- AI ADVISOR -->
+      <div class="page" id="page-ai">
+        <div class="card" style="padding:0;overflow:hidden">
+          <div class="ai-panel">
+            <div class="ai-header">
+              <div class="ai-avatar-wrap">🤖<div class="ai-status-dot"></div></div>
+              <div style="flex:1">
+                <div class="ai-name">SpendWise AI</div>
+                <div class="ai-status">● Online · Siap membantu</div>
+              </div>
+              <div class="flex gap-8">
+                <span class="badge badge-green">PocketBase AI</span>
+                <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="clearAIChat()">Reset</button>
+              </div>
+            </div>
+            <div class="ai-messages" id="aiMessages"></div>
+            <div class="ai-chips" id="aiChips"></div>
+            <div class="ai-input-row">
+              <input type="text" class="form-input" id="aiInput"
+                placeholder="Tanya tentang keuanganmu..."
+                onkeydown="if(event.key==='Enter'){event.preventDefault();sendAIMessage();}">
+              <button class="btn btn-primary" onclick="sendAIMessage()" style="flex-shrink:0">
+                <svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CARI -->
+      <div class="page" id="page-search"></div>
+
+      <!-- PENGATURAN -->
+      <div class="page" id="page-settings"></div>
+
+      <!-- ROADMAP -->
+      <div class="page" id="page-timeline">
+        <div class="card mb-16">
+          <div class="card-header">
+            <div class="card-title"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Timeline Pengerjaan</div>
+            <span class="badge badge-blue">8 Minggu</span>
+          </div>
+          <div class="timeline" id="timelineMount"></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"><svg viewBox="0 0 24 24"><path d="M3 3h6l2 3h10a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/></svg>Struktur Proyek</div>
+            <span class="badge badge-green">v2.1 PocketBase</span>
+          </div>
+<pre class="code-block">spendwise/
+├── Dockerfile              ✅ Container image
+├── fly.toml                ✅ Deploy ke Fly.io
+├── pb_hooks/
+│   └── ai_chat.pb.js       ✅ AI proxy (server-side)
+├── pb_migrations/
+│   └── 1700000000_*.js     ✅ Skema database otomatis
+└── frontend/               (isi folder ini = pb_public)
+    ├── index.html           ✅ Entry point
+    ├── manifest.json        ✅ PWA
+    ├── assets/logo.png      ✅ Logo
+    └── src/
+        ├── components/      ✅ 9 komponen UI
+        │   ├── Onboarding.js   ✅ Login/Register PB
+        │   ├── Sidebar.js
+        │   ├── Dashboard.js
+        │   ├── TransactionModal.js ✅ CRUD async PB
+        │   ├── BudgetPage.js   ✅ Budget async PB
+        │   ├── LaporanPage.js
+        │   ├── AIAdvisor.js
+        │   ├── SettingsPage.js ✅ Profile/logout PB
+        │   └── SearchPage.js
+        ├── data/categories.js
+        ├── utils/
+        │   ├── pb.js        ✅ PocketBase client
+        │   ├── helpers.js
+        │   └── aiEngine.js  ✅ AI via PB route
+        └── styles/</pre>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- MODAL TRANSAKSI -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Catat Transaksi</div>
+      <button class="modal-close" onclick="closeModal()"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="tab-row">
+        <button class="tab-btn active" id="tabOut" onclick="switchTransactionTab('out')">💸 Pengeluaran</button>
+        <button class="tab-btn"        id="tabIn"  onclick="switchTransactionTab('in')">💰 Pemasukan</button>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nominal (Rp)</label>
+        <input type="number" class="form-input amount-input" id="txAmount" placeholder="0" min="0" inputmode="numeric">
+      </div>
+      <div id="sectionCategory" class="form-group">
+        <label class="form-label">Kategori</label>
+        <div class="category-grid" id="catGrid"></div>
+      </div>
+      <div id="sectionSource" class="form-group" style="display:none">
+        <label class="form-label">Sumber Pemasukan</label>
+        <select class="form-input" id="txSource">
+          <option value="Gaji">💼 Gaji</option>
+          <option value="Bisnis">🏪 Bisnis</option>
+          <option value="Freelance">💻 Freelance</option>
+          <option value="Investasi">📈 Investasi</option>
+          <option value="Bonus">🎁 Bonus</option>
+          <option value="Hadiah">🎀 Hadiah</option>
+          <option value="Lainnya">📦 Lainnya</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Catatan (opsional)</label>
+        <input type="text" class="form-input" id="txNote" placeholder="Contoh: Nasi goreng + es teh" maxlength="80">
+      </div>
+      <div id="sectionMethod" class="form-group">
+        <label class="form-label">Metode Pembayaran</label>
+        <select class="form-input" id="txMethod">
+          <option value="Tunai">💵 Tunai</option>
+          <option value="Transfer Bank">🏦 Transfer Bank</option>
+          <option value="GoPay">🟢 GoPay</option>
+          <option value="OVO">💜 OVO</option>
+          <option value="Dana">🔵 Dana</option>
+          <option value="QRIS">📲 QRIS</option>
+          <option value="Kartu Kredit">💳 Kartu Kredit</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tanggal & Waktu</label>
+        <input type="datetime-local" class="form-input" id="txDate" style="font-family:var(--mono);font-size:13px">
+      </div>
+      <button class="btn btn-primary w-full" id="saveTxBtn"
+        style="justify-content:center;padding:13px;font-size:15px;margin-top:4px"
+        onclick="saveTransaction()">
+        <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Simpan Transaksi
+      </button>
+    </div>
+  </div>
+</div>
+
+<button class="mobile-fab" onclick="openModal()">+</button>
+<div class="mobile-nav" id="mobileNavMount"></div>
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- JS — urutan penting! -->
+<script src="src/data/categories.js"></script>
+<script src="src/utils/helpers.js"></script>
+<script src="src/utils/pb.js"></script>
+<script src="src/utils/aiEngine.js"></script>
+<script src="src/components/Onboarding.js"></script>
+<script src="src/components/Sidebar.js"></script>
+<script src="src/components/Dashboard.js"></script>
+<script src="src/components/TransactionModal.js"></script>
+<script src="src/components/BudgetPage.js"></script>
+<script src="src/components/LaporanPage.js"></script>
+<script src="src/components/AIAdvisor.js"></script>
+<script src="src/components/SettingsPage.js"></script>
+<script src="src/components/SearchPage.js"></script>
+<script src="src/components/GoalsPage.js"></script>
+<script src="src/components/RecurringPage.js"></script>
+
+<script>
+// ══════════════════════════════════════════
+// GLOBAL STATE
+// ══════════════════════════════════════════
+const appState = {
+  user:         { name:'', balance:0, dailyBudget:150000, email:'' },
+  transactions: [],
+  budgets:      {},
+  currentPage:  'dashboard',
+  theme:        localStorage.getItem('sw_theme') || 'dark',
+};
+
+// ══════════════════════════════════════════
+// LOAD DATA DARI POCKETBASE
+// ══════════════════════════════════════════
+async function loadAppData() {
+  document.getElementById('root').innerHTML    = '';
+  document.getElementById('appLoading').style.display = 'flex';
+  document.getElementById('appShell').style.display   = 'none';
+
+  try {
+    const u = pbCurrentUser();
+    appState.user = {
+      name:        u.name        || '',
+      balance:     u.balance     || 0,
+      dailyBudget: u.daily_budget|| 150000,
+      email:       u.email       || '',
+    };
+
+    // Fetch transaksi & budget dari PocketBase (paralel)
+    const [txs, budgets] = await Promise.all([
+      pbGetTransactions(),
+      pbGetBudgets(),
+    ]);
+
+    appState.transactions = txs;
+    appState.budgets      = budgets;
+    // Goals & recurring tersimpan sebagai JSON di user record
+    appState.goals     = pbGetGoals(u);
+    appState.recurring = pbGetRecurring(u);
+
+    initApp();
+  } catch (err) {
+    document.getElementById('appLoading').style.display = 'none';
+    showToast('Gagal memuat data: ' + (err.message || err), 'error');
+    pbLogout();
+    renderOnboarding();
+  }
+}
+
+// ══════════════════════════════════════════
+// INIT APP
+// ══════════════════════════════════════════
+function initApp() {
+  document.getElementById('appLoading').style.display = 'none';
+  document.getElementById('appShell').style.display   = '';
+  document.getElementById('topbarDate').textContent   = formatDate(new Date(), 'full');
+
+  applyTheme(appState.theme);
+  renderSidebar();
+  buildCategoryGrid();
+  _buildCatFilter();
+  _buildLaporanCatFilter();
+  showPage('dashboard');
+  _initAIGreeting();
+  _buildTimeline();
+  _checkDailyBudgetAlert();
+  _checkRecurringDue();
+}
+
+// ══════════════════════════════════════════
+// THEME
+// ══════════════════════════════════════════
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('sw_theme', theme);
+  appState.theme = theme;
+  const icon = document.getElementById('themeIcon');
+  const meta = document.getElementById('metaThemeColor');
+  if (theme === 'light') {
+    if (icon) icon.innerHTML = '<circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>';
+    if (meta) meta.content = '#f6f8fa';
+  } else {
+    if (icon) icon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+    if (meta) meta.content = '#0d1117';
+  }
+}
+function toggleTheme() { applyTheme(appState.theme === 'dark' ? 'light' : 'dark'); }
+
+// ══════════════════════════════════════════
+// HELPER INITS
+// ══════════════════════════════════════════
+function _buildCatFilter() {
+  const sel = document.getElementById('txCatFilter');
+  if (!sel) return;
+  sel.innerHTML = '<option value="all">Semua Kategori</option>' +
+    CATEGORIES.map(c => `<option value="${c.id}">${c.emoji} ${c.label}</option>`).join('');
+}
+function _buildLaporanCatFilter() {
+  const sel = document.getElementById('laporanCatFilter');
+  if (!sel) return;
+  sel.innerHTML = '<option value="all">Semua Kategori</option>' +
+    CATEGORIES.map(c => `<option value="${c.id}">${c.emoji} ${c.label}</option>`).join('');
+}
+
+function _checkRecurringDue() {
+  const today = new Date();
+  const due   = (appState.recurring || []).filter(r => r.active !== false && _isDueToday && _isDueToday(r, today));
+  const el    = document.getElementById('dashRecurringAlert');
+  if (!el) return;
+  if (due.length > 0) {
+    el.style.display = '';
+    el.innerHTML = `
+      <div class="alert-banner mb-16">
+        <span>🔁 <strong>${due.length} agenda rutin</strong> jatuh tempo hari ini</span>
+        <button class="btn btn-primary text-xs" onclick="showPage('recurring')" style="padding:6px 14px">Lihat →</button>
+      </div>`;
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+function _checkDailyBudgetAlert() {
+  const now    = new Date();
+  const out    = calcTotal(appState.transactions.filter(t => t.type === 'out' && sameDay(new Date(t.date), now)), 'out');
+  const budget = appState.user.dailyBudget;
+  const p      = budget > 0 ? Math.round((out / budget) * 100) : 0;
+  if      (p >= 100) setTimeout(() => showToast(`🚨 Budget harian habis! (${fmtRp(out)} / ${fmtRp(budget)})`, 'error', 5000), 800);
+  else if (p >=  80) setTimeout(() => showToast(`⚠️ Budget harian ${p}% terpakai`, 'info', 4000), 800);
+}
+
+function _initAIGreeting() {
+  const container = document.getElementById('aiMessages');
+  if (!container) return;
+  const now      = new Date();
+  const monthTxs = appState.transactions.filter(t => sameMonth(new Date(t.date), now));
+  const totalOut = calcTotal(monthTxs, 'out');
+  container.innerHTML = '';
+  const chipsEl = document.getElementById('aiChips');
+  if (chipsEl) {
+    chipsEl.innerHTML = AI_SUGGESTION_CHIPS.map(c =>
+      `<div class="ai-chip" onclick="sendAIMessage('${c.msg}')">${c.label}</div>`
+    ).join('');
+  }
+  const formatted = (`Halo **${appState.user.name}**! 👋 Saya **SpendWise AI**, asisten keuangan pribadimu.\n\n` +
+    `💸 Pengeluaran bulan ini: **${fmtRp(totalOut)}**\n💰 Saldo: **${fmtRp(appState.user.balance)}**\n\n` +
+    `Mau analisis apa hari ini? 😊`)
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+  const time = new Date().toLocaleTimeString('id-ID', { hour:'2-digit', minute:'2-digit' });
+  const div  = document.createElement('div');
+  div.className = 'msg ai';
+  div.innerHTML = `<div class="msg-ava">🤖</div><div class="msg-inner"><div class="msg-bubble">${formatted}</div><div class="msg-time">SpendWise AI · ${time}</div></div>`;
+  container.appendChild(div);
+}
+
+const TIMELINE_DATA = [
+  { phase:'Minggu 1', status:'done',    emoji:'✅', title:'Planning & Desain UI/UX',         tags:['Figma','Design System','GitHub'] },
+  { phase:'Minggu 2', status:'done',    emoji:'✅', title:'Setup Proyek Modular',             tags:['HTML5','CSS3','Vanilla JS'] },
+  { phase:'Minggu 3', status:'done',    emoji:'✅', title:'CRUD Transaksi + Date Picker',     tags:['CRUD','Edit','Hapus','LocalStorage'] },
+  { phase:'Minggu 4', status:'done',    emoji:'✅', title:'Dashboard & Charts',               tags:['Chart.js','Real-time','Stats'] },
+  { phase:'Minggu 5', status:'done',    emoji:'✅', title:'Budget, Laporan, Search, Settings',tags:['Budget','Filter','Export','Search'] },
+  { phase:'Minggu 6', status:'done',    emoji:'✅', title:'Migrasi ke PocketBase',            tags:['PocketBase','Auth JWT','SQLite','Cloud'] },
+  { phase:'Minggu 7', status:'active',  emoji:'🔄', title:'AI Advisor + Deploy Fly.io',      tags:['AI','OpenRouter','Fly.io','Docker'] },
+  { phase:'Minggu 8', status:'upcoming',emoji:'8',  title:'PWA, Testing & Launch v1.0',      tags:['PWA','Testing','A11y','Launch'] },
+];
+function _buildTimeline() {
+  const el = document.getElementById('timelineMount');
+  if (!el) return;
+  el.innerHTML = TIMELINE_DATA.map(item => `
+    <div class="tl-item">
+      <div class="tl-dot ${item.status}">${item.emoji}</div>
+      <div class="tl-body">
+        <div class="tl-phase">${item.phase}</div>
+        <div class="tl-title">${item.title}</div>
+        <div class="tl-tags">${item.tags.map(t=>`<span class="tl-tag">${t}</span>`).join('')}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ══════════════════════════════════════════
+// BOOT — cek auth PocketBase
+// ══════════════════════════════════════════
+(function boot() {
+  applyTheme(appState.theme); // apply tema dulu biar tidak flash
+  if (pbIsLoggedIn()) {
+    loadAppData();
+  } else {
+    document.getElementById('appLoading').style.display = 'none';
+    renderOnboarding();
+  }
+})();
+</script>
+</body>
+</html>

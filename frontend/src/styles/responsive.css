@@ -1,0 +1,145 @@
+/* src/styles/responsive.css
+   ─────────────────────────────────────────────
+   Responsive — Mobile, Tablet, Desktop
+   ─────────────────────────────────────────────
+*/
+
+/* ── LARGE DESKTOP (1400px+) ── */
+@media (min-width: 1400px) {
+  .stats-grid { grid-template-columns: repeat(4, 1fr); }
+}
+
+/* ── TABLET LANDSCAPE (1024px - 1280px) ── */
+@media (max-width: 1200px) {
+  .dash-grid { grid-template-columns: 1fr 300px; }
+}
+
+/* ── TABLET (768px - 1024px) ── */
+@media (max-width: 1024px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .dash-grid  { grid-template-columns: 1fr; }
+  .report-grid { grid-template-columns: 1fr; }
+  .budget-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ── MOBILE (max-width: 768px) ── */
+@media (max-width: 768px) {
+  /* Sidebar: slide out */
+  .sidebar {
+    transform: translateX(-100%);
+    width: 260px;
+  }
+  .sidebar.open {
+    transform: translateX(0);
+    box-shadow: 4px 0 24px rgba(0,0,0,0.5);
+  }
+
+  /* Main: full width */
+  .main { margin-left: 0; }
+
+  /* Topbar */
+  .topbar { padding: 0 16px; gap: 10px; height: 56px; }
+  .topbar-subtitle { display: none; }
+  .hamburger { display: flex; }
+
+  /* Pages */
+  .page {
+    padding: 14px;
+    padding-bottom: 76px; /* space for bottom nav */
+  }
+
+  /* Stats */
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .stat-value { font-size: 18px; }
+
+  /* Budget */
+  .budget-grid { grid-template-columns: 1fr; }
+
+  /* Mobile UI */
+  .mobile-fab { display: flex; }
+  .mobile-nav { display: flex; }
+
+  /* AI Panel */
+  .ai-panel {
+    height: calc(100vh - 56px - 58px - 56px);
+    min-height: 300px;
+  }
+
+  .ai-chips { display: none; }
+
+  /* Cards */
+  .card { padding: 16px; }
+
+  /* Modal */
+  .modal {
+    max-height: 88vh;
+    border-radius: 16px;
+  }
+
+  /* Form */
+  .form-input.amount-input { font-size: 24px; }
+
+  /* Category grid */
+  .category-grid { grid-template-columns: repeat(4, 1fr); }
+
+  /* Chart container */
+  .dash-grid { gap: 12px; }
+
+  /* Onboarding */
+  .onboard-card { padding: 28px 22px; }
+}
+
+/* ── SMALL MOBILE (max-width: 420px) ── */
+@media (max-width: 420px) {
+  .stats-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat-value { font-size: 16px; }
+  .stat-card { padding: 14px 15px; }
+
+  .category-grid { grid-template-columns: repeat(3, 1fr); }
+
+  .page { padding: 12px; padding-bottom: 76px; }
+
+  .card { padding: 14px; }
+
+  .topbar { padding: 0 12px; }
+
+  .onboard-card { padding: 22px 16px; }
+  .onboard-title { font-size: 22px; }
+
+  /* TX items */
+  .tx-icon { width: 34px; height: 34px; border-radius: 8px; font-size: 15px; }
+  .tx-name { font-size: 12px; }
+  .tx-amount { font-size: 12px; }
+
+  /* AI */
+  .ai-input-row { padding: 10px 12px; gap: 7px; }
+  .msg { max-width: 90%; }
+  .msg-bubble { font-size: 13px; padding: 9px 12px; }
+}
+
+/* ── TOUCH TARGETS ── */
+@media (hover: none) and (pointer: coarse) {
+  .btn { min-height: 42px; }
+  .form-input { min-height: 44px; }
+  .nav-item { min-height: 44px; }
+  .tx-item { min-height: 56px; }
+  .cat-btn { min-height: 64px; }
+}
+
+/* ── DARK MODE PREFERENCE (already dark by default) ── */
+@media (prefers-color-scheme: light) {
+  /* App is dark-only, override if needed in future */
+}
+
+/* ── REDUCED MOTION ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
